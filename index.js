@@ -82,7 +82,10 @@ async function checkAndNotify() {
       .setFooter({ text: 'Up-Manga อัพมังงะ • อ่านฟรีออนไลน์' })
       .setTimestamp();
 
-    await channel.send({ embeds: [embed] });
+    await channel.send({ 
+      content: process.env.USER_ID ? `<@${process.env.USER_ID}>` : null,
+      embeds: [embed] 
+    });
 
     // หน่วง 1.5 วิ ระหว่างแต่ละเรื่อง ไม่ให้ส่งติดกันเร็วเกินไป
     await new Promise(r => setTimeout(r, 1500));
