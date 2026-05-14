@@ -53,7 +53,8 @@ module.exports = {
         .setFooter({ text: 'Up-Manga อัพมังงะ • อ่านฟรีออนไลน์' })
         .setTimestamp();
 
-      await interaction.channel.send({ embeds: [embed] });
+      
+      await interaction.channel.send({ embeds: [embed] }); 
       await new Promise(r => setTimeout(r, 1500));
     }
 
