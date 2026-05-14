@@ -65,7 +65,10 @@ module.exports = {
         .setTimestamp();
 
       // ส่งเข้า NEWS channel โดยตรง ไม่ใช้ interaction.channel
-      await newsChannel.send({ embeds: [embed] });
+      await newsChannel.send({ 
+        content: process.env.USER_ID ? `<@${process.env.USER_ID}>` : null,
+        embeds: [embed] 
+      });
       await new Promise(r => setTimeout(r, 1500));
     }
 
