@@ -3,13 +3,7 @@ const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('disc
 const { scrapeLatestUpdates } = require('../scraper');
 const fs = require('fs');
 
-function loadSeen() {
-  try { return JSON.parse(fs.readFileSync('./seen.json', 'utf8')); }
-  catch { return {}; }
-}
-function saveSeen(data) {
-  fs.writeFileSync('./seen.json', JSON.stringify(data, null, 2));
-}
+const { createClient } = require('redis');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -23,27 +17,36 @@ module.exports = {
     // ตอบ interaction ก่อนทันที (ต้องทำภายใน 3 วิ ไม่งั้น timeout)
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
+    // เชื่อมต่อ Redis เฉพาะกิจ
+    const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+    await redisClient.connect();
+
     // หา channel ที่จะส่งข่าว
     let newsChannel;
     try {
       newsChannel = await interaction.client.channels.fetch(process.env.NEWS_CHANNEL_ID);
     } catch (e) {
+      await redisClient.disconnect();
       return interaction.editReply(`❌ หา Channel ไม่เจอ: ${e.message}\nเช็ค NEWS_CHANNEL_ID ใน Railway ด้วยครับ`);
     }
 
     const updates = await scrapeLatestUpdates();
     if (!updates.length) {
+      await redisClient.disconnect();
       return interaction.editReply('❌ ดึงข้อมูลไม่ได้ ลองใหม่อีกครั้ง');
     }
 
-    const seen   = loadSeen();
     let newCount = 0;
 
     for (const manga of updates) {
-      const key = `${manga.slug}::${manga.latestChapter}`;
-      if (seen[key]) continue;
+      const key = `seen:${manga.slug}:${manga.latestChapter}`;
+      
+      const alreadySeen = await redisClient.get(key);
+      if (alreadySeen) continue;
 
-      seen[key] = Date.now();
+      await redisClient.set(key, Date.now().toString(), {
+        EX: 60 * 60 * 24 * 7 // 7 days
+      });
       newCount++;
 
       const embed = new EmbedBuilder()
@@ -72,7 +75,7 @@ module.exports = {
       await new Promise(r => setTimeout(r, 1500));
     }
 
-    saveSeen(seen);
+    await redisClient.disconnect();
     await interaction.editReply(
       newCount > 0
         ? `✅ พบ **${newCount}** เรื่องใหม่ ส่งเข้า <#${process.env.NEWS_CHANNEL_ID}> แล้ว!`

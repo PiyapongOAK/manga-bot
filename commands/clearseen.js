@@ -1,6 +1,5 @@
-// commands/clearseen.js — ล้างประวัติที่เคยแจ้งไปแล้ว
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const fs = require('fs');
+const { createClient } = require('redis');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -9,15 +8,24 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
   async execute(interaction) {
+    // เชื่อมต่อ Redis เฉพาะกิจ
+    const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+    
     try {
-      fs.writeFileSync('./seen.json', '{}');
+      await redisClient.connect();
+      
+      // ล้างข้อมูลทั้งหมดใน Database
+      await redisClient.flushDb();
+      
+      await redisClient.disconnect();
       await interaction.reply({
-        content: '✅ ล้างประวัติสำเร็จ! ลอง /checknow ได้เลยครับ',
+        content: '✅ ล้างประวัติใน Redis สำเร็จ! ลอง /checknow ได้เลยครับ',
         ephemeral: true
       });
     } catch (e) {
+      if (redisClient.isOpen) await redisClient.disconnect();
       await interaction.reply({
-        content: `❌ เกิดข้อผิดพลาด: ${e.message}`,
+        content: `❌ เกิดข้อผิดพลาดกับ Redis: ${e.message}`,
         ephemeral: true
       });
     }

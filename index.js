@@ -25,17 +25,19 @@ for (const file of eventFiles) {
   client.on(event.name, (...args) => event.execute(...args, client));
 }
 
-// ── ระบบจดจำที่อ่านแล้ว (เก็บในไฟล์ seen.json) ───────────
-function loadSeen() {
-  try {
-    return JSON.parse(fs.readFileSync('./seen.json', 'utf8'));
-  } catch {
-    return {};
-  }
-}
-function saveSeen(data) {
-  fs.writeFileSync('./seen.json', JSON.stringify(data, null, 2));
-}
+const { createClient } = require('redis');
+
+// ── ตั้งค่า Redis ──────────────────────────────────────────
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+
+redisClient.on('error', err => console.error('Redis Client Error', err));
+
+(async () => {
+  await redisClient.connect();
+  console.log('✅ เชื่อมต่อ Redis สำเร็จ!');
+})();
 
 // ── ฟังก์ชันส่งแจ้งเตือนเข้า Discord ────────────────────
 async function checkAndNotify() {
@@ -51,16 +53,18 @@ async function checkAndNotify() {
   const updates = await scrapeLatestUpdates();
   if (!updates.length) return;
 
-  const seen = loadSeen();
-  let hasNew = false;
-
   for (const manga of updates) {
     // key = ชื่อเรื่อง + ตอน เพื่อตรวจสอบว่าเคยแจ้งแล้วหรือยัง
-    const key = `${manga.slug}::${manga.latestChapter}`;
-    if (seen[key]) continue;
+    const key = `seen:${manga.slug}:${manga.latestChapter}`;
+    
+    // ตรวจสอบใน Redis ว่าเคยส่งไปหรือยัง
+    const alreadySeen = await redisClient.get(key);
+    if (alreadySeen) continue;
 
-    seen[key] = Date.now();
-    hasNew = true;
+    // บันทึกลง Redis (เก็บไว้ 7 วันเพื่อประหยัดพื้นที่ หรือไม่ใส่ก็ได้)
+    await redisClient.set(key, Date.now().toString(), {
+      EX: 60 * 60 * 24 * 7 // 7 days
+    });
 
     // สร้าง Embed สวยงามพร้อมปกเรื่อง
     const { EmbedBuilder } = require('discord.js');
@@ -90,8 +94,6 @@ async function checkAndNotify() {
     // หน่วง 1.5 วิ ระหว่างแต่ละเรื่อง ไม่ให้ส่งติดกันเร็วเกินไป
     await new Promise(r => setTimeout(r, 1500));
   }
-
-  if (hasNew) saveSeen(seen);
 }
 
 // ── เมื่อบอทออนไลน์ ──────────────────────────────────────
