@@ -39,8 +39,15 @@ function saveSeen(data) {
 
 // ── ฟังก์ชันส่งแจ้งเตือนเข้า Discord ────────────────────
 async function checkAndNotify() {
-  const channel = client.channels.cache.get(process.env.NEWS_CHANNEL_ID);
-  if (!channel) return;
+  // ใหม่ — fetch แทน cache
+let channel;
+try {
+  channel = await client.channels.fetch(process.env.NEWS_CHANNEL_ID);
+} catch {
+  console.error('❌ หา Channel ไม่เจอ เช็ค NEWS_CHANNEL_ID ด้วยครับ');
+  return;
+}
+if (!channel) return;
 
   const updates = await scrapeLatestUpdates();
   if (!updates.length) return;
