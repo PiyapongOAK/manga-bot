@@ -18,15 +18,26 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    const { MessageFlags } = require('discord.js');
+
+    // ตอบ interaction ก่อนทันที (ต้องทำภายใน 3 วิ ไม่งั้น timeout)
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    // หา channel ที่จะส่งข่าว
+    let newsChannel;
+    try {
+      newsChannel = await interaction.client.channels.fetch(process.env.NEWS_CHANNEL_ID);
+    } catch (e) {
+      return interaction.editReply(`❌ หา Channel ไม่เจอ: ${e.message}\nเช็ค NEWS_CHANNEL_ID ใน Railway ด้วยครับ`);
+    }
 
     const updates = await scrapeLatestUpdates();
     if (!updates.length) {
       return interaction.editReply('❌ ดึงข้อมูลไม่ได้ ลองใหม่อีกครั้ง');
     }
 
-    const seen    = loadSeen();
-    let newCount  = 0;
+    const seen   = loadSeen();
+    let newCount = 0;
 
     for (const manga of updates) {
       const key = `${manga.slug}::${manga.latestChapter}`;
@@ -53,15 +64,15 @@ module.exports = {
         .setFooter({ text: 'Up-Manga อัพมังงะ • อ่านฟรีออนไลน์' })
         .setTimestamp();
 
-      
-      await interaction.channel.send({ embeds: [embed] }); 
+      // ส่งเข้า NEWS channel โดยตรง ไม่ใช้ interaction.channel
+      await newsChannel.send({ embeds: [embed] });
       await new Promise(r => setTimeout(r, 1500));
     }
 
     saveSeen(seen);
     await interaction.editReply(
       newCount > 0
-        ? `✅ พบ **${newCount}** เรื่องใหม่ และส่งแจ้งเตือนแล้ว!`
+        ? `✅ พบ **${newCount}** เรื่องใหม่ ส่งเข้า <#${process.env.NEWS_CHANNEL_ID}> แล้ว!`
         : '📭 ไม่มีอัปเดตใหม่ตั้งแต่ครั้งที่แล้ว'
     );
   }
