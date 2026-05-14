@@ -39,15 +39,14 @@ function saveSeen(data) {
 
 // ── ฟังก์ชันส่งแจ้งเตือนเข้า Discord ────────────────────
 async function checkAndNotify() {
-  // ใหม่ — fetch แทน cache
-let channel;
-try {
-  channel = await client.channels.fetch(process.env.NEWS_CHANNEL_ID);
-} catch {
-  console.error('❌ หา Channel ไม่เจอ เช็ค NEWS_CHANNEL_ID ด้วยครับ');
-  return;
-}
-if (!channel) return;
+  let channel;
+  try {
+    channel = await client.channels.fetch(process.env.NEWS_CHANNEL_ID);
+  } catch (e) {
+    console.error('❌ หา Channel ไม่เจอ:', e.message, '| NEWS_CHANNEL_ID =', process.env.NEWS_CHANNEL_ID);
+    return;
+  }
+  if (!channel) return;
 
   const updates = await scrapeLatestUpdates();
   if (!updates.length) return;
@@ -99,7 +98,7 @@ client.once('ready', () => {
   // เช็คทุก 15 นาที (ปรับได้ตามต้องการ)
   // รูปแบบ: '*/15 * * * *' = ทุก 15 นาที
   //         '0 * * * *'   = ทุก 1 ชั่วโมง
-  cron.schedule('*/1 * * * *', async () => {
+  cron.schedule('*/15 * * * *', async () => {
     console.log('🔍 กำลังเช็คอัปเดตใหม่...');
     await checkAndNotify();
   });
