@@ -95,11 +95,9 @@ async function checkAndNotify() {
 client.once('ready', () => {
   console.log(`✅ บอทพร้อมแล้ว! เข้าสู่ระบบในชื่อ: ${client.user.tag}`);
 
-  // เช็คทุก 15 นาที (ปรับได้ตามต้องการ)
-  // รูปแบบ: '*/15 * * * *' = ทุก 15 นาที
-  //         '0 * * * *'   = ทุก 1 ชั่วโมง
-  cron.schedule('*/15 * * * *', async () => {
-    console.log('🔍 กำลังเช็คอัปเดตใหม่...');
+  // เช็คทุก 1 นาที เพื่อความรวดเร็ว (Real-time)
+  cron.schedule('* * * * *', async () => {
+    console.log('🔍 กำลังเช็คอัปเดตใหม่ (รอบ 1 นาที)...');
     await checkAndNotify();
   });
 
